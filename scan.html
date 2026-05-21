@@ -1122,6 +1122,7 @@ function ModeBtn({ dot, l, s, onClick, active }) {
 function SearchScreen({ onClose, onPick, onScan }) {
   const [q, setQ] = useState('');
   const [catalogMode, setCatalogMode] = useState(false);
+  const [numPad, setNumPad] = useState(true);
   const inputRef = useRef(null);
   useEffect(() => { setTimeout(()=>inputRef.current?.focus(), 50); }, []);
 
@@ -1134,6 +1135,12 @@ function SearchScreen({ onClose, onPick, onScan }) {
       const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque}`.toLowerCase();
       return words.every(w => hay.includes(w));
     }).slice(0, catalogMode ? 4 : 8);
+    // Si query = code exact 5-6 chiffres non trouvé en local, essayer catalogue direct
+    const qClean = q.trim().replace(/\D/g,'');
+    if (local.length === 0 && /^\d{5,6}$/.test(qClean)) {
+      const catArt = _catalogArticle(qClean);
+      if (catArt) return [catArt];
+    }
     if (!catalogMode || !CATALOGUE?.A) return local;
     // Recherche catalogue
     const localCodes = new Set(local.map(a => a.code));
@@ -1157,7 +1164,8 @@ function SearchScreen({ onClose, onPick, onScan }) {
         <button onClick={onClose} style={btnIcon()}><Ico d={ICONS.back} /></button>
         <div style={{flex:1,display:'flex',alignItems:'center',gap:8,padding:'0 6px 0 12px',background:T.card,borderRadius:12,border:`1.5px solid ${q?T.accent:T.border}`,height:42}}>
           <Ico d={ICONS.search} s={16} />
-          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Code, libellé, empl..." autoFocus
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder={numPad?"Référence...":"Code, libellé, empl..."} autoFocus
+            inputMode={numPad?'numeric':'text'}
             style={{flex:1,background:'none',border:'none',color:T.t1,fontSize:15,fontWeight:q?700:400,outline:'none',letterSpacing:q?.5:0}} className="tn" />
           {q && <button onClick={()=>setQ('')} style={{background:'none',border:'none',color:T.t3,fontSize:18,cursor:'pointer',padding:'4px 8px'}}>✕</button>}
         </div>
@@ -1165,16 +1173,19 @@ function SearchScreen({ onClose, onPick, onScan }) {
           <Ico d={ICONS.scan} s={18} sw={2.5} />
         </button>
       </div>
-      {CATALOGUE && (
-        <div style={{padding:'4px 12px',display:'flex',alignItems:'center',gap:8,background:T.bg}}>
-          <button onClick={()=>setCatalogMode(m=>!m)} style={{
-            padding:'5px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
-            background:catalogMode?'rgba(96,165,250,.15)':'transparent',
-            color:catalogMode?'#60a5fa':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
-          }}>{catalogMode ? '✓ Catalogue Legallais' : 'Catalogue'}</button>
-          {catalogMode && <span style={{fontSize:10,color:T.t3}}>{Object.keys(CATALOGUE.A).length.toLocaleString('fr-FR')} articles</span>}
-        </div>
-      )}
+      <div style={{padding:'4px 12px',display:'flex',alignItems:'center',gap:8,background:T.bg}}>
+        <button onClick={()=>{setNumPad(m=>!m);setTimeout(()=>inputRef.current?.focus(),50);}} style={{
+          padding:'5px 10px',borderRadius:99,border:`1px solid ${numPad?'rgba(74,222,128,.6)':T.border}`,
+          background:numPad?'rgba(74,222,128,.15)':'transparent',
+          color:numPad?'#4ade80':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
+        }}>{numPad ? '123' : 'ABC'}</button>
+        {CATALOGUE && <button onClick={()=>setCatalogMode(m=>!m)} style={{
+          padding:'5px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
+          background:catalogMode?'rgba(96,165,250,.15)':'transparent',
+          color:catalogMode?'#60a5fa':T.t3,fontSize:11,fontWeight:800,cursor:'pointer',
+        }}>{catalogMode ? '✓ Catalogue' : 'Catalogue'}</button>}
+        {catalogMode && CATALOGUE && <span style={{fontSize:10,color:T.t3}}>{Object.keys(CATALOGUE.A).length.toLocaleString('fr-FR')} articles</span>}
+      </div>
 
       <div style={{flex:1,overflow:'auto',padding:'8px 12px 12px'}}>
         {!q.trim() && (
@@ -1508,35 +1519,18 @@ function ArticleScreen({ t, code, onBack, onActions, onAddAction, onScan, onNext
                 </div>
                 <Ico d={ICONS.fwd} s={18} sw={2.5} />
               </button>
-              <button onClick={onActions} style={{
-                width:'100%',marginTop:8,padding:'13px 14px',borderRadius:12,
-                background:T.card,color:T.t1,border:`1px solid ${T.border}`,
-                display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
-              }}>
-                <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />Ajouter une action
-              </button>
             </>
-          );
-          if (addedActions.length === 0) return (
-            <button onClick={onActions} style={{
-              width:'100%',marginTop:12,padding:'13px 14px',borderRadius:12,
-              background:T.card,color:T.t1,border:`1px solid ${T.border}`,
-              display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
-            }}>
-              <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />Ajouter une action
-            </button>
           );
           return null;
         })()}
         {!invMode && (
           <button onClick={onActions} style={{
-            width: addedActions.length > 0 ? '100%' : 0,
-            display: addedActions.length > 0 ? 'flex' : 'none',
-            marginTop:10,padding:'12px 14px',borderRadius:12,
-            background:'rgba(255,255,255,.04)',color:T.t1,border:`1px dashed ${T.border}`,
-            alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
+            width:'100%',marginTop:10,padding:'13px 14px',borderRadius:12,
+            background:addedActions.length > 0 ? 'rgba(255,255,255,.04)' : T.card,
+            color:T.t1,border:addedActions.length > 0 ? `1px dashed ${T.border}` : `1px solid ${T.border}`,
+            display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:13,fontWeight:700,
           }}>
-            <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />Ajouter une autre action
+            <Ico d="<path d='M12 5v14M5 12h14'/>" s={16} sw={2.5} />{addedActions.length > 0 ? 'Ajouter une autre action' : 'Ajouter une action'}
           </button>
         )}
 
@@ -2762,8 +2756,8 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
             <button key={a.code} onClick={()=>onPick(a.code)} style={invRow(T.card, T.border)}>
               <div style={{width:32,height:32,borderRadius:9,background:'rgba(255,255,255,.04)',color:T.t3,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14,fontWeight:800}}>○</div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code} · {a.empl}</div>
-                <div style={{fontSize:13,fontWeight:600,color:T.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:11,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
+                <div style={{fontSize:12,fontWeight:600,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
               </div>
               <div style={{textAlign:'right'}}>
                 <div style={{fontSize:10,color:T.t3}}>ERP</div>
@@ -2785,8 +2779,8 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
                   <button key={a.code} onClick={()=>onPick(a.code)} style={invRow(ok?'rgba(34,197,94,.06)':'rgba(251,191,36,.08)', ok?'rgba(34,197,94,.2)':'rgba(251,191,36,.3)')}>
                     <div style={{width:32,height:32,borderRadius:9,background:c+'22',color:c,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:900}}>{ok?'✓':'⚠'}</div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,color:T.t3,fontWeight:600}} className="tn">{a.code} · {a.empl}</div>
-                      <div style={{fontSize:13,fontWeight:600,color:T.t1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                      <div style={{fontSize:14,color:T.t1,fontWeight:800}} className="tn">{a.code} <span style={{fontSize:11,color:T.t3,fontWeight:600}}>· {a.empl}</span></div>
+                      <div style={{fontSize:12,fontWeight:600,color:T.t2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                     </div>
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:10,color:T.t3}} className="tn">ERP {a.stock}</div>
@@ -2801,18 +2795,18 @@ function InvListScreen({ zone, codes, counts, onPick, onExit, onScan, onSummary 
       </div>
 
       <div style={{padding:'8px 14px calc(14px + env(safe-area-inset-bottom))',background:T.bg,borderTop:`1px solid ${T.border}`,display:'flex',gap:8}}>
+        {done > 0 && <button onClick={onSummary} style={{
+          padding:'14px 16px',borderRadius:14,border:'none',
+          background:'#22c55e',color:'#06200f',
+          fontSize:13,fontWeight:800,letterSpacing:.3,flexShrink:0,
+        }}>{`Terminer · ${ecarts}`}</button>}
         <button onClick={onScan} style={{
-          width:54,height:50,borderRadius:14,border:'none',background:T.accent,color:'#1a0e05',
-          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+          flex:1,padding:'14px',borderRadius:14,border:'none',background:T.accent,color:'#1a0e05',
+          display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+          fontSize:14,fontWeight:900,letterSpacing:.3,
         }}>
-          <Ico d={ICONS.scan} s={20} sw={2.5} />
+          <Ico d={ICONS.scan} s={18} sw={2.5} /> Scanner
         </button>
-        <button onClick={onSummary} disabled={done===0} style={{
-          flex:1,padding:'14px',borderRadius:14,border:'none',
-          background: done===0 ? 'rgba(255,255,255,.06)' : '#22c55e',
-          color: done===0 ? T.t3 : '#06200f',
-          fontSize:14,fontWeight:800,letterSpacing:.3,
-        }}>{done===0 ? 'Compter pour terminer' : `Terminer · ${ecarts} correction${ecarts>1?'s':''}`}</button>
       </div>
     </>
   );
@@ -2908,11 +2902,11 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                   border:'1px solid rgba(248,113,113,.3)',color:T.t1,textAlign:'left',width:'100%',
                 }}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:800,letterSpacing:.5}} className="tn">{a.code}</div>
-                    <div style={{fontSize:11,color:T.t3,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                    <div style={{fontSize:17,fontWeight:900,letterSpacing:.5}} className="tn">{a.code}</div>
+                    <div style={{fontSize:12,color:T.t3,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                   </div>
                   <div style={{textAlign:'right',flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:700}} className="tn">ERP {a.stock}</div>
+                    <div style={{fontSize:15,fontWeight:800}} className="tn">ERP {a.stock}</div>
                     <div style={{fontSize:10,color:'#fca5a5',marginTop:1,fontWeight:700}}>Non vérifié</div>
                   </div>
                 </button>
@@ -2935,8 +2929,8 @@ function InvSummaryScreen({ zone, codes, counts, extras={}, onBack, onPush, onPi
                     border:`1px solid ${ok ? 'rgba(34,197,94,.15)' : 'rgba(251,191,36,.25)'}`,color:T.t1,textAlign:'left',width:'100%',
                   }}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:17,fontWeight:900,fontFamily:'ui-monospace,monospace',color: ok ? T.t3 : T.t1}} className="tn">{a.code}</div>
-                      <div style={{fontSize:11,color:T.t3,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
+                      <div style={{fontSize:17,fontWeight:900,fontFamily:'ui-monospace,monospace',color: ok ? T.t1 : T.t1}} className="tn">{a.code}</div>
+                      <div style={{fontSize:12,color:T.t2,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.lib}</div>
                       {!ok && <div style={{fontSize:11,color:T.t2,marginTop:2}} className="tn">ERP {a.stock} → <strong style={{color:T.t1}}>{n}</strong></div>}
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
@@ -3250,6 +3244,7 @@ function PCApp() {
   }, []);
   const [code, setCode] = useState(null);
   const [q, setQ] = useState('');
+  const [catalogMode, setCatalogMode] = useState(false);
   const [history, setHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('prisme_pc_hist')||'[]'); } catch(e){ return []; }
   });
@@ -3329,11 +3324,25 @@ function PCApp() {
     if (!s) return [];
     const words = s.toLowerCase().split(/\s+/).filter(w=>w.length>=2);
     if (!words.length) return [];
-    return ARTICLES.filter(a => {
+    const local = ARTICLES.filter(a => {
       const hay = `${a.code} ${a.lib} ${a.empl} ${a.fam} ${a.marque||''} ${a.refFourn||''}`.toLowerCase();
       return words.every(w => hay.includes(w));
-    }).slice(0,12);
-  }, [q]);
+    }).slice(0, catalogMode ? 6 : 12);
+    if (!catalogMode || !CATALOGUE?.A) return local;
+    const localCodes = new Set(local.map(a => a.code));
+    const catResults = [];
+    for (const [code, entry] of Object.entries(CATALOGUE.A)) {
+      if (localCodes.has(code)) continue;
+      const lib = (entry[2] || '').toLowerCase();
+      const marque = (CATALOGUE.M?.[entry[0]] || '').toLowerCase();
+      const hay = `${code} ${lib} ${marque}`;
+      if (words.every(w => hay.includes(w))) {
+        catResults.push(_catalogArticle(code));
+        if (catResults.length >= 8) break;
+      }
+    }
+    return [...local, ...catResults];
+  }, [q, catalogMode]);
 
   const article = code ? _artByCode.get(code) : null;
 
@@ -3371,9 +3380,14 @@ function PCApp() {
               {q && <button type="button" onClick={()=>{setQ('');inputRef.current?.focus();}} style={{background:'none',border:'none',color:T.t3,fontSize:22,cursor:'pointer',padding:'4px 4px'}}>X</button>}
               <button type="submit" disabled={!q.trim()} style={{height:42,padding:'0 14px',borderRadius:9,border:'none',background:q.trim()?T.accent:T.border,color:q.trim()?'#1a0e05':T.t3,fontSize:12,fontWeight:800,cursor:q.trim()?'pointer':'default',letterSpacing:.5}}>Enter</button>
             </div>
-            <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600}}>
+            <div style={{fontSize:10,color:T.t3,marginTop:8,display:'flex',gap:14,fontWeight:600,alignItems:'center'}}>
               <span><kbd style={kbd}>Enter</kbd> ouvrir</span>
               <span><kbd style={kbd}>Esc</kbd> effacer</span>
+              {CATALOGUE && <button type="button" onClick={()=>setCatalogMode(m=>!m)} style={{
+                padding:'3px 10px',borderRadius:99,border:`1px solid ${catalogMode?'rgba(96,165,250,.6)':T.border}`,
+                background:catalogMode?'rgba(96,165,250,.15)':'transparent',
+                color:catalogMode?'#60a5fa':T.t3,fontSize:10,fontWeight:800,cursor:'pointer',
+              }}>{catalogMode ? '✓ Catalogue' : 'Catalogue'}</button>}
               <span style={{marginLeft:'auto',color:scannerActive?T.accent:T.t3}}>douchette auto</span>
             </div>
           </form>
